@@ -1,5 +1,6 @@
 package com.hospitals.service;
 
+import java.util.Collection;
 import java.util.Date;
 import java.util.HashSet;
 import java.util.Set;
@@ -13,7 +14,10 @@ import com.hospitals.model.Role;
 import com.hospitals.model.Users;
 import com.hospitals.repository.UserRepository;
 
+import lombok.extern.slf4j.Slf4j;
+
 @Service
+@Slf4j
 public class UserService {
 	
 	@Autowired
@@ -25,21 +29,33 @@ public class UserService {
 	@Autowired
 	private EmailNotification emailNotification;
 	
-	public Iterable<Users> getAll(){
-		return userRepository.findAll();
-	}
+	public Iterable<Users> getAll() {
+        log.info("Fetching all users from the database.");
+        Iterable<Users> users = userRepository.findAll();
+        log.info("Successfully fetched {} user(s).", ((Collection<?>) users).size());
+        return users;
+    }
 	
 	public Users getSingleData(String userName) {
-		return userRepository.findByUserName(userName);
-	}
+        log.info("Fetching user details for username: {}", userName);
+        Users user = userRepository.findByUserName(userName);
+        if (user == null) {
+            log.warn("User with username '{}' not found.", userName);
+        } else {
+            log.info("User details retrieved successfully for username: {}", userName);
+        }
+        return user;
+    }
 	
 	public Users create(Users user) {
 	    // Encrypt the user's password
+		log.info("Creating a new user with username: {}", user.getUserName());
 	    String password = user.getPassword();
 	    String encrypt = bCryptPasswordEncoder.encode(password);
 	    user.setPassword(encrypt);
 	    user.setDate(new Date());
-
+	    log.info("Password encrypted successfully.");
+	    
 	    // Set roles for the user
 	    Set<Role> roles = new HashSet<>();
 	    Role role = new Role();
@@ -80,11 +96,20 @@ public class UserService {
 	        "</body>" +
 	        "</html>";
 
-	    // Send the email notification
-	    emailNotification.mailSender("Student Account Created", emailText, user.getEmail());
+	    try {
+            log.info("Sending email to {}", user.getEmail());
+            emailNotification.mailSender("Student Account Created", emailText, user.getEmail());
+            log.info("Email sent successfully to {}", user.getEmail());
+        } catch (Exception e) {
+            log.error("Failed to send email to {}: {}", user.getEmail(), e.getMessage(), e);
+        }
 
-	    // Save the user to the repository
-	    return userRepository.save(user);
+        // Save the user to the repository
+        log.info("Saving user '{}' to the database.", user.getUserName());
+        Users savedUser = userRepository.save(user);
+        log.info("User '{}' created successfully.", savedUser.getUserName());
+
+        return savedUser;
 	}
 
 }
