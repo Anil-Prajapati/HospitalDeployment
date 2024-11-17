@@ -49,7 +49,7 @@ public class UserService {
 	
 	public Users create(Users user) {
 	    // Encrypt the user's password
-		log.info("Creating a new user with username: {}", user.getUserName());
+	    log.info("Creating a new user with username: {}", user.getUserName());
 	    String password = user.getPassword();
 	    String encrypt = bCryptPasswordEncoder.encode(password);
 	    user.setPassword(encrypt);
@@ -59,7 +59,7 @@ public class UserService {
 	    // Set roles for the user
 	    Set<Role> roles = new HashSet<>();
 	    Role role = new Role();
-	    role.setRoleName("Admin");
+	    role.setRoleName("User");
 	    role.setDescription("This Is The User Role");
 	    roles.add(role);
 	    user.setRoles(roles);
