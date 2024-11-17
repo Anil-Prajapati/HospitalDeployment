@@ -21,91 +21,109 @@ import com.hospitals.model.Users;
 import com.hospitals.repository.UserRepository;
 import com.hospitals.util.JwtUtil;
 
+import lombok.extern.slf4j.Slf4j;
+
 @Service
+@Slf4j
 public class JwtService implements UserDetailsService {
 
-	@Autowired
-	@Lazy
-	private UserRepository userRepository;
+    @Autowired
+    @Lazy
+    private UserRepository userRepository;
 
-	@Autowired
-	@Lazy
-	private AuthenticationManager authenticationManager;
+    @Autowired
+    @Lazy
+    private AuthenticationManager authenticationManager;
 
-	@Autowired
-	@Lazy
-	private JwtUtil jwtUtil;
+    @Autowired
+    @Lazy
+    private JwtUtil jwtUtil;
 
-	public JwtResponse createJwtToken(JwtRequest jwtRequest) {
-		String userName = jwtRequest.getUserName();
-		String password = jwtRequest.getPassword();
-		
-		if (userName == null || userName.isEmpty()) {
-			throw new UsernameNotFoundException("User Name is not found...");
-		}
+    public JwtResponse createJwtToken(JwtRequest jwtRequest) {
+        log.info("Generating JWT token for user: {}", jwtRequest.getUserName());
+        
+        String userName = jwtRequest.getUserName();
+        String password = jwtRequest.getPassword();
 
-		Users user = findByUserNameOrEmailOrContactNumber(userName, 0);
+        if (userName == null || userName.isEmpty()) {
+            log.error("User name is missing in the request.");
+            throw new UsernameNotFoundException("User name cannot be null or empty.");
+        }
 
-		if (user == null || !authentication(user.getUserName(), password)) {
-			throw new UsernameNotFoundException("Bad Credencial userName and password");
-		}
+        Users user = findByUserNameOrEmailOrContactNumber(userName, 0);
 
-		final UserDetails userDetails = loadUserByUsername(userName);
-		String generateToken = jwtUtil.generateToken(userDetails);
+        if (user == null || !authenticate(user.getUserName(), password)) {
+            log.error("Authentication failed for user: {}", userName);
+            throw new UsernameNotFoundException("Invalid username or password.");
+        }
 
-		return new JwtResponse(user, generateToken);
-	}
+        UserDetails userDetails = loadUserByUsername(userName);
+        String generateToken = jwtUtil.generateToken(userDetails);
 
-	@Override
-	public UserDetails loadUserByUsername(String username) throws UsernameNotFoundException {
-		// TODO Auto-generated method stub
-		Users user = userRepository.findById(username).orElse(null);
-		if (user != null) {
-			return new org.springframework.security.core.userdetails.User(user.getUserName(), user.getPassword(),
-					getAuthorities(user));
-		} else {
-			throw new UsernameNotFoundException("User Name is Requied...");
-		}
-	}
+        log.info("JWT token generated successfully for user: {}", userName);
+        return new JwtResponse(user, generateToken);
+    }
 
-	public Set<SimpleGrantedAuthority> getAuthorities(Users user) {
-		Set<SimpleGrantedAuthority> authorities = new HashSet<SimpleGrantedAuthority>();
-		user.getRoles().forEach(role -> {
-			authorities.add(new SimpleGrantedAuthority("ROLE_" + role.getRoleName()));
-		});
-		return authorities;
-	}
+    @Override
+    public UserDetails loadUserByUsername(String username) throws UsernameNotFoundException {
+        log.info("Loading user by username: {}", username);
+        Users user = userRepository.findById(username).orElse(null);
 
-	private boolean authentication(String userName, String password) {
+        if (user != null) {
+            log.info("User found: {}", username);
+            return new org.springframework.security.core.userdetails.User(
+                user.getUserName(), 
+                user.getPassword(), 
+                getAuthorities(user)
+            );
+        } else {
+            log.error("User not found with username: {}", username);
+            throw new UsernameNotFoundException("User not found with username: " + username);
+        }
+    }
 
-		try {
-			authenticationManager.authenticate(new UsernamePasswordAuthenticationToken(userName, password));
-			return true;
-		} catch (DisabledException e) {
-			// TODO: handle exception
-			System.out.println("user Name is Disable...");
-			return false;
-		} catch (BadCredentialsException e) {
-			// TODO: handle exception
-			System.out.println("Bad Credential from the user name...");
-			return false;
-		}
+    public Set<SimpleGrantedAuthority> getAuthorities(Users user) {
+        log.debug("Fetching roles for user: {}", user.getUserName());
+        Set<SimpleGrantedAuthority> authorities = new HashSet<>();
+        user.getRoles().forEach(role -> {
+            authorities.add(new SimpleGrantedAuthority("ROLE_" + role.getRoleName()));
+        });
+        log.debug("Roles assigned: {}", authorities);
+        return authorities;
+    }
 
-	}
+    private boolean authenticate(String userName, String password) {
+        try {
+            authenticationManager.authenticate(new UsernamePasswordAuthenticationToken(userName, password));
+            log.info("Authentication successful for user: {}", userName);
+            return true;
+        } catch (DisabledException e) {
+            log.error("User account is disabled: {}", userName, e);
+            return false;
+        } catch (BadCredentialsException e) {
+            log.error("Invalid credentials provided by user: {}", userName, e);
+            return false;
+        }
+    }
 
-	private Users findByUserNameOrEmailOrContactNumber(String userNameOrEmailOrContactNumber, long contactNumber) {
+    private Users findByUserNameOrEmailOrContactNumber(String userNameOrEmailOrContactNumber, long contactNumber) {
+        log.debug("Searching user by username, email, or contact number: {}", userNameOrEmailOrContactNumber);
+        Users user = userRepository.findById(userNameOrEmailOrContactNumber).orElse(null);
 
-		Users user = userRepository.findById(userNameOrEmailOrContactNumber).orElse(null);
+        if (user == null) {
+            user = userRepository.findByEmailIgnoreCase(userNameOrEmailOrContactNumber);
+        }
 
-		if (user == null) {
-			user = userRepository.findByEmailIgnoreCase(userNameOrEmailOrContactNumber);
-		}
+        if (user == null) {
+            user = userRepository.findByContactNumber(contactNumber);
+        }
 
-		if (user == null) {
-			user = userRepository.findByContactNumber(contactNumber);
-		}
+        if (user != null) {
+            log.debug("User found: {}", userNameOrEmailOrContactNumber);
+        } else {
+            log.warn("User not found: {}", userNameOrEmailOrContactNumber);
+        }
 
-		return user;
-	}
-
+        return user;
+    }
 }
