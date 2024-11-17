@@ -59,7 +59,7 @@ public class UserService {
 	    // Set roles for the user
 	    Set<Role> roles = new HashSet<>();
 	    Role role = new Role();
-	    role.setRoleName("User");
+	    role.setRoleName("Admin");
 	    role.setDescription("This Is The User Role");
 	    roles.add(role);
 	    user.setRoles(roles);
