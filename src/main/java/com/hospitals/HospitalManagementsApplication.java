@@ -19,7 +19,7 @@ public class HospitalManagementsApplication {
 			@Override
 			public void addCorsMappings(CorsRegistry registry) {
 				registry.addMapping("/**")
-				        .allowedOrigins("http://localhost:3000") // Allow requests from this origin
+				        .allowedOrigins("http://localhost:3000","https://prismatic-rugelach-3a9581.netlify.app") // Allow requests from this origin
 						.allowedMethods("GET", "POST", "PUT", "DELETE") // Allow these HTTP methods
 						.allowedHeaders("*") // Allow all headers
 						.allowCredentials(true); // Allow credentials (e.g., cookies)
